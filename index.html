@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes, viewport-fit=cover">
+    <!-- Added to the home screen, iOS opens this with no address bar and no toolbar at all. -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <!-- Translucent, so the board has the whole screen: iOS will not let a web page hide the status bar, and
+         a solid one costs a strip of picture. The interface keeps clear of it from inside the game instead. -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="9 Chess">
+    <meta name="theme-color" content="#050507">
+    <title>9 Chess U6</title>
+    <link rel="icon" type="image/png" sizes="512x512" href="TemplateData/icon-512.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="TemplateData/icon-180.png">
+    <link rel="stylesheet" href="TemplateData/style.css">
+  </head>
+  <body>
+    <div id="game">
+      <canvas id="unity-canvas" tabindex="-1"></canvas>
+      <div id="loader">
+        <div class="piece">&#9822;</div>
+        <div class="title">9 CHESS</div>
+        <div class="bar"><div class="fill" id="fill"></div></div>
+        <div class="percent" id="percent">0%</div>
+        <div class="hint" id="hint">Setting up the board…</div>
+      </div>
+      <div id="banner"></div>
+    </div>
+    <script>
+      var canvas = document.querySelector("#unity-canvas");
+
+      // Keep the game exactly the size of what the browser is actually showing. Safari's toolbar slides away
+      // as you scroll and the document box does not follow it, which leaves a strip of canvas that was never
+      // drawn into — the floating black rectangle.
+      function fitToViewport() {
+        var game = document.getElementById("game");
+        if (!game) return;
+        var vv = window.visualViewport;
+        var width = vv ? vv.width : window.innerWidth;
+        var height = vv ? vv.height : window.innerHeight;
+        game.style.width = width + "px";
+        game.style.height = height + "px";
+        game.style.left = (vv ? vv.offsetLeft : 0) + "px";
+        game.style.top = (vv ? vv.offsetTop : 0) + "px";
+      }
+      fitToViewport();
+      window.addEventListener("resize", fitToViewport);
+      window.addEventListener("orientationchange", function () { setTimeout(fitToViewport, 250); });
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener("resize", fitToViewport);
+        window.visualViewport.addEventListener("scroll", fitToViewport);
+      }
+      var hints = [
+        "Setting up the board…",
+        "Polishing the pieces…",
+        "Lighting the studio…",
+        "Almost ready to play…"
+      ];
+
+      function unityShowBanner(msg, type) {
+        var banner = document.querySelector("#banner");
+        var div = document.createElement("div");
+        div.innerHTML = msg;
+        div.className = type == "error" ? "error" : "warning";
+        banner.appendChild(div);
+        if (type != "error") setTimeout(function () { banner.removeChild(div); }, 5000);
+      }
+
+      var buildUrl = "Build";
+      var loaderUrl = buildUrl + "/9Chess-Pages.loader.js";
+      var config = {
+        arguments: [],
+        dataUrl: buildUrl + "/9Chess-Pages.data.unityweb",
+        frameworkUrl: buildUrl + "/9Chess-Pages.framework.js.unityweb",
+        codeUrl: buildUrl + "/9Chess-Pages.wasm.unityweb",
+        streamingAssetsUrl: "StreamingAssets",
+        companyName: "UFO Studios",
+        productName: "9 Chess U6",
+        productVersion: "0.1.0",
+        showBanner: unityShowBanner,
+        autoSyncPersistentDataPath: true,   // flush saves (coins, purchases, profile) to browser storage
+      };
+
+      // Phones: render at CSS resolution to keep the frame rate up.
+      if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+        config.devicePixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+      }
+
+      var script = document.createElement("script");
+      script.src = loaderUrl;
+      script.onload = function () {
+        var fill = document.querySelector("#fill");
+        var percent = document.querySelector("#percent");
+        var hint = document.querySelector("#hint");
+        createUnityInstance(canvas, config, function (progress) {
+          var p = Math.round(progress * 100);
+          fill.style.width = p + "%";
+          percent.textContent = p + "%";
+          hint.textContent = hints[Math.min(hints.length - 1, Math.floor(progress * hints.length))];
+        }).then(function (instance) {
+          window.unityInstance = instance; // for page scripts and automated tests (SendMessage)
+          var loader = document.querySelector("#loader");
+          loader.classList.add("done");
+          setTimeout(function () { loader.style.display = "none"; }, 700);
+        }).catch(function (message) {
+          unityShowBanner(message, "error");
+        });
+      };
+      document.body.appendChild(script);
+    </script>
+  </body>
+</html>
